@@ -89,8 +89,8 @@ jdbc_database = "free-sql-db-0870579"
 jdbc_url = f"jdbc:sqlserver://{jdbc_hostname}:{jdbc_port};database={jdbc_database}"
 
 jdbc_properties = {
-    "user": dbutils.secrets.get(scope="kv-sql-dev", key="sql-user"),
-    "password": dbutils.secrets.get(scope="kv-sql-dev", key="sql-password"),
+    "user": dbutils.secrets.get(scope="kv-iqair-dev", key="sql-user"),
+    "password": dbutils.secrets.get(scope="kv-iqair-dev", key="sql-password"),
     "driver": "com.microsoft.sqlserver.jdbc.SQLServerDriver"
 }
 
