@@ -1,0 +1,445 @@
+{
+	"name": "PL_IQAir_MetadataDriven_Ingestion",
+	"properties": {
+		"activities": [
+			{
+				"name": "LKP_ExecutionContext",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.00:10:00",
+					"retry": 2,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat(\n'EXEC get_execution_context @environment = ''',\npipeline().parameters.environment,\n''''\n)",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_Metadata",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "SET_ExecutionId",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "LKP_ExecutionContext",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "execution_id",
+					"value": {
+						"value": "@activity('LKP_ExecutionContext').output.firstRow.execution_id",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "LKP_Config",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "SET_ExecutionId",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.00:10:00",
+					"retry": 2,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT\n    MAX(CASE WHEN config_key = 'bronze_enabled' THEN\n        CASE WHEN LOWER(config_value) = 'true' THEN 1 ELSE 0 END\n    END) AS bronze_enabled,\n\n    MAX(CASE WHEN config_key = 'silver_enabled' THEN\n        CASE WHEN LOWER(config_value) = 'true' THEN 1 ELSE 0 END\n    END) AS silver_enabled,\n\n    MAX(CASE WHEN config_key = 'gold_enabled' THEN\n        CASE WHEN LOWER(config_value) = 'true' THEN 1 ELSE 0 END\n    END) AS gold_enabled,\n\n    MAX(CASE WHEN config_key = 'dq_enabled' THEN\n        CASE WHEN LOWER(config_value) = 'true' THEN 1 ELSE 0 END\n    END) AS dq_enabled\nFROM ingestion_config;",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_Metadata",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "SP_StartPipelineRun",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "LKP_Config",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.00:10:00",
+					"retry": 2,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[start_pipeline_run]",
+					"storedProcedureParameters": {
+						"execution_id": {
+							"value": {
+								"value": "@variables('execution_id')",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"pipeline_run_id": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"environment": {
+							"value": {
+								"value": "@pipeline().parameters.environment",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSQL_IQAir",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "SP_EndPipelineRun_Success",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "EP_MainETL",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.00:10:00",
+					"retry": 2,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[end_pipeline_run]",
+					"storedProcedureParameters": {
+						"execution_id": {
+							"value": {
+								"value": "@variables('execution_id')",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"pipeline_run_id": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"final_status": {
+							"value": "SUCCESS",
+							"type": "String"
+						},
+						"error_message": {
+							"value": null,
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSQL_IQAir",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "SP_EndPipelineRun_Failed",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "EP_MainETL",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.00:10:00",
+					"retry": 2,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[end_pipeline_run]",
+					"storedProcedureParameters": {
+						"execution_id": {
+							"value": {
+								"value": "@variables('execution_id')",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"pipeline_run_id": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"final_status": {
+							"value": "FAILED",
+							"type": "String"
+						},
+						"error_message": {
+							"value": {
+								"value": "@activity('EP_MainETL').error.message",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSQL_IQAir",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "EP_MainETL",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SP_StartPipelineRun",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "SET_BronzeEnabled",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "SET_SilverEnabled",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "SET_GoldEnabled",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "SET_DqEnabled",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "PL_IQAir_Main_ETL",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"execution_id": {
+							"value": "@variables('execution_id')",
+							"type": "Expression"
+						},
+						"environment": {
+							"value": "@pipeline().parameters.environment",
+							"type": "Expression"
+						},
+						"pipeline_run_id": {
+							"value": "@pipeline().RunId",
+							"type": "Expression"
+						},
+						"bronze_enabled": {
+							"value": "@variables('bronze_enabled')",
+							"type": "Expression"
+						},
+						"silver_enabled": {
+							"value": "@variables('silver_enabled')",
+							"type": "Expression"
+						},
+						"gold_enabled": {
+							"value": "@variables('gold_enabled')",
+							"type": "Expression"
+						},
+						"dq_enabled": {
+							"value": "@variables('dq_enabled')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "SET_BronzeEnabled",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "LKP_Config",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "bronze_enabled",
+					"value": {
+						"value": "@bool(activity('LKP_Config').output.firstRow.bronze_enabled)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "SET_SilverEnabled",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "LKP_Config",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "silver_enabled",
+					"value": {
+						"value": "@bool(activity('LKP_Config').output.firstRow.silver_enabled)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "SET_GoldEnabled",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "LKP_Config",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "gold_enabled",
+					"value": {
+						"value": "@bool(activity('LKP_Config').output.firstRow.gold_enabled)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "SET_DqEnabled",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "LKP_Config",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "dq_enabled",
+					"value": {
+						"value": "@bool(activity('LKP_Config').output.firstRow.dq_enabled)",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"environment": {
+				"type": "string",
+				"defaultValue": "dev"
+			}
+		},
+		"variables": {
+			"execution_id": {
+				"type": "String"
+			},
+			"bronze_enabled": {
+				"type": "Boolean"
+			},
+			"silver_enabled": {
+				"type": "Boolean"
+			},
+			"gold_enabled": {
+				"type": "Boolean"
+			},
+			"dq_enabled": {
+				"type": "Boolean"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-06-29T14:46:39Z"
+	}
+}

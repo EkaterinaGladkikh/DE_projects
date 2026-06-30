@@ -1,0 +1,390 @@
+{
+	"name": "PL_IQAir_Main_ETL",
+	"properties": {
+		"activities": [
+			{
+				"name": "LKP_Entities",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.00:10:00",
+					"retry": 2,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT city,\n       state,\n       country\nFROM ingestion_entities\nWHERE is_active=1\nORDER BY city",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_Metadata",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "SET_EntitiesArray",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "LKP_Entities",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "entities_array",
+					"value": {
+						"value": "@if(\n    pipeline().parameters.bronze_enabled,\n    activity('LKP_Entities').output.value,\n    json('[]')\n)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "FE_BronzeIngestion",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "SP_CheckAPILimits",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@variables('entities_array')",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "SP_LogActivityStart",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_start]",
+								"storedProcedureParameters": {
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"environment": {
+										"value": {
+											"value": "@pipeline().parameters.environment",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"activity_name": {
+										"value": "NB_Bronze",
+										"type": "String"
+									},
+									"entity": {
+										"value": {
+											"value": "@item().city",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"layer": {
+										"value": "Bronze",
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "NB_Bronze",
+							"type": "DatabricksNotebook",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityStart",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebookPath": "/DE_projects/azure-iqair-metadata-driven-ingestion/databricks/bronze/01_bronze_ingestion_iqair",
+								"baseParameters": {
+									"execution_id": {
+										"value": "@pipeline().parameters.execution_id",
+										"type": "Expression"
+									},
+									"pipeline_run_id": {
+										"value": "@pipeline().parameters.pipeline_run_id",
+										"type": "Expression"
+									},
+									"city": {
+										"value": "@item().city",
+										"type": "Expression"
+									},
+									"state": {
+										"value": "@item().state",
+										"type": "Expression"
+									},
+									"country": {
+										"value": "@item().country",
+										"type": "Expression"
+									},
+									"environment": {
+										"value": "@pipeline().parameters.environment",
+										"type": "Expression"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_Databricks_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SP_LogActivityEnd_Success",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "NB_Bronze",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_end]",
+								"storedProcedureParameters": {
+									"activity_name": {
+										"value": "NB_Bronze",
+										"type": "String"
+									},
+									"entity": {
+										"value": {
+											"value": "@item().city",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"error_message": {
+										"value": null,
+										"type": "String"
+									},
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"final_status": {
+										"value": "SUCCESS",
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SP_LogActivityEnd_Failed",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "NB_Bronze",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_end]",
+								"storedProcedureParameters": {
+									"activity_name": {
+										"value": "NB_Bronze",
+										"type": "String"
+									},
+									"entity": {
+										"value": {
+											"value": "@item().city",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"error_message": {
+										"value": {
+											"value": "@activity('NB_Bronze').error.message",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"final_status": {
+										"value": "FAILED",
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "SP_CheckAPILimits",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "SET_EntitiesArray",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.00:10:00",
+					"retry": 2,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[check_api_limits]",
+					"storedProcedureParameters": {
+						"requested_calls": {
+							"value": {
+								"value": "@length(variables('entities_array'))",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"bronze_enabled": {
+							"value": {
+								"value": "@pipeline().parameters.bronze_enabled",
+								"type": "Expression"
+							},
+							"type": "Boolean"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSQL_IQAir",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"execution_id": {
+				"type": "string"
+			},
+			"environment": {
+				"type": "string"
+			},
+			"pipeline_run_id": {
+				"type": "string"
+			},
+			"bronze_enabled": {
+				"type": "bool"
+			},
+			"silver_enabled": {
+				"type": "bool"
+			},
+			"gold_enabled": {
+				"type": "bool"
+			},
+			"dq_enabled": {
+				"type": "bool"
+			}
+		},
+		"variables": {
+			"entities_array": {
+				"type": "Array"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-06-30T09:43:30Z"
+	}
+}
