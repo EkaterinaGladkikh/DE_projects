@@ -1,0 +1,10 @@
+{
+	"name": "LS_KeyVault_IQAir",
+	"properties": {
+		"annotations": [],
+		"type": "AzureKeyVault",
+		"typeProperties": {
+			"baseUrl": "https://kv-iqair-dev.vault.azure.net/"
+		}
+	}
+}
