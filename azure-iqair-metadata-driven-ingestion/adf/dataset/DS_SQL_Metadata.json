@@ -1,0 +1,25 @@
+{
+	"name": "DS_SQL_Metadata",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_AzureSQL_IQAir",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "config_key",
+				"type": "nvarchar"
+			},
+			{
+				"name": "config_value",
+				"type": "nvarchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "ingestion_config"
+		}
+	}
+}

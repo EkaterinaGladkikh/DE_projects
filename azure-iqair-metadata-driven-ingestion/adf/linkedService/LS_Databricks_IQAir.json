@@ -1,0 +1,19 @@
+{
+	"name": "LS_Databricks_IQAir",
+	"properties": {
+		"annotations": [],
+		"type": "AzureDatabricks",
+		"typeProperties": {
+			"domain": "https://adb-1710251416880284.4.azuredatabricks.net",
+			"accessToken": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "LS_KeyVault_IQAir",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "databricks-pat"
+			},
+			"existingClusterId": "0626-135412-w8rpdjfc"
+		}
+	}
+}
