@@ -17,7 +17,10 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT city,\n       state,\n       country\nFROM ingestion_entities\nWHERE is_active=1\nORDER BY city",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT e.city, e.state, e.country FROM ingestion_entities e WHERE e.is_active = 1   AND NOT EXISTS (         SELECT 1 FROM pipeline_audit pa         WHERE pa.record_type = ''ACTIVITY''           AND pa.execution_id = ''',pipeline().parameters.execution_id,'''           AND pa.entity = e.city           AND pa.layer = ''Bronze''           AND pa.status = ''SUCCESS''   ) ORDER BY e.city')",
+							"type": "Expression"
+						},
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -72,7 +75,7 @@
 					"isSequential": true,
 					"activities": [
 						{
-							"name": "SP_LogActivityStart",
+							"name": "SP_LogActivityStart_Bronze",
 							"type": "SqlServerStoredProcedure",
 							"dependsOn": [],
 							"policy": {
@@ -134,7 +137,7 @@
 							"type": "DatabricksNotebook",
 							"dependsOn": [
 								{
-									"activity": "SP_LogActivityStart",
+									"activity": "SP_LogActivityStart_Bronze",
 									"dependencyConditions": [
 										"Succeeded"
 									]
@@ -183,7 +186,7 @@
 							}
 						},
 						{
-							"name": "SP_LogActivityEnd_Success",
+							"name": "SP_LogActivityEnd_Bronze_Success",
 							"type": "SqlServerStoredProcedure",
 							"dependsOn": [
 								{
@@ -245,7 +248,7 @@
 							}
 						},
 						{
-							"name": "SP_LogActivityEnd_Failed",
+							"name": "SP_LogActivityEnd_Bronze_Failed",
 							"type": "SqlServerStoredProcedure",
 							"dependsOn": [
 								{
@@ -307,6 +310,47 @@
 							"linkedServiceName": {
 								"referenceName": "LS_AzureSQL_IQAir",
 								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SET_RunHasFailures_Bronze",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityEnd_Bronze_Failed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "run_has_failures",
+								"value": true
+							}
+						},
+						{
+							"name": "FAIL_Bronze_City",
+							"type": "Fail",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityEnd_Bronze_Failed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@concat('Bronze ingestion failed for city=', item().city, ' execution_id=', pipeline().parameters.execution_id, '. Error: ', activity('NB_Bronze').error.message)",
+									"type": "Expression"
+								},
+								"errorCode": "BRONZE_CITY_FAILED"
 							}
 						}
 					]
