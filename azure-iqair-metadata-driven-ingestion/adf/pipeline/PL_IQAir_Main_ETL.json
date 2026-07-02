@@ -354,6 +354,285 @@
 					"referenceName": "LS_AzureSQL_IQAir",
 					"type": "LinkedServiceReference"
 				}
+			},
+			{
+				"name": "IF_SilverEnabled",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "FE_BronzeIngestion",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@pipeline().parameters.silver_enabled",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "SP_LogActivityStart_Silver",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_start]",
+								"storedProcedureParameters": {
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"environment": {
+										"value": {
+											"value": "@pipeline().parameters.environment",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"activity_name": {
+										"value": "NB_Silver",
+										"type": "String"
+									},
+									"entity": {
+										"value": null,
+										"type": "String"
+									},
+									"layer": {
+										"value": "Silver",
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "NB_Silver",
+							"type": "DatabricksNotebook",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityStart_Silver",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebookPath": "/DE_projects/azure-iqair-metadata-driven-ingestion/databricks/silver/02_silver_transform_iqair",
+								"baseParameters": {
+									"execution_id": {
+										"value": "@pipeline().parameters.execution_id",
+										"type": "Expression"
+									},
+									"pipeline_run_id": {
+										"value": "@pipeline().parameters.pipeline_run_id",
+										"type": "Expression"
+									},
+									"environment": {
+										"value": "@pipeline().parameters.environment",
+										"type": "Expression"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_Databricks_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SP_LogActivityEnd_Silver_Success",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "NB_Silver",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_end]",
+								"storedProcedureParameters": {
+									"activity_name": {
+										"value": "NB_Silver",
+										"type": "String"
+									},
+									"entity": {
+										"value": null,
+										"type": "String"
+									},
+									"error_message": {
+										"value": null,
+										"type": "String"
+									},
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"final_status": {
+										"value": "SUCCESS",
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SP_LogActivityEnd_Silver_Failed",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "NB_Silver",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_end]",
+								"storedProcedureParameters": {
+									"activity_name": {
+										"value": "NB_Silver",
+										"type": "String"
+									},
+									"entity": {
+										"value": null,
+										"type": "String"
+									},
+									"error_message": {
+										"value": {
+											"value": "@activity('NB_Silver').error.message",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"final_status": {
+										"value": "FAILED",
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SET_RunHasFailures_Silver",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityEnd_Silver_Failed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "run_has_failures",
+								"value": true
+							}
+						},
+						{
+							"name": "FAIL_Silver",
+							"type": "Fail",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityEnd_Silver_Failed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@concat('Silver transform failed. execution_id=', pipeline().parameters.execution_id, '. Error: ', activity('NB_Silver').error.message)",
+									"type": "Expression"
+								},
+								"errorCode": "SILVER_FAILED"
+							}
+						}
+					]
+				}
 			}
 		],
 		"parameters": {
@@ -382,6 +661,10 @@
 		"variables": {
 			"entities_array": {
 				"type": "Array"
+			},
+			"run_has_failures": {
+				"type": "Boolean",
+				"defaultValue": false
 			}
 		},
 		"annotations": [],
