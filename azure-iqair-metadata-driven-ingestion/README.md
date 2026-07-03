@@ -49,20 +49,50 @@ Business aggregates built only from Silver (full refresh, deterministic):
 - `gold_aqi_category_days_by_month`
   - Monthly counts of days by US AQI category (based on daily max AQI)
 
+### Environment-aware schemas (Databricks)
+
+All Bronze/Silver/Gold notebooks receive an `environment` parameter from ADF and resolve
+their Delta schema as `iqair_{environment}` (e.g. `iqair_dev`).
+
 ---
 
 ## Current repository structure
 
 azure-iqair-metadata-driven-ingestion/
-  databricks/
-    bronze/
-      01_bronze_ingestion_iqair.py
-    silver/
-      02_silver_transform_iqair.py
-    gold/
-      03_gold_daily_aqi_metrics_iqair.py
-      04_gold_weather_correlation_monthly_iqair.py
-      05_gold_aqi_category_monthly_iqair.py
+├── adf/
+│   ├── dataset/
+│   │   └── DS_SQL_Metadata.json
+│   ├── linkedService/
+│   │   ├── LS_AzureSQL_IQAir.json
+│   │   ├── LS_Databricks_IQAir.json
+│   │   └── LS_KeyVault_IQAir.json
+│   ├── pipeline/
+│   │   ├── PL_IQAir_Main_ETL.json
+│   │   └── PL_IQAir_MetadataDriven_Ingestion.json
+│   └── publish_config.json
+├── databricks/
+│   ├── bronze/
+│   │   └── 01_bronze_ingestion_iqair.py
+│   ├── silver/
+│   │   └── 02_silver_transform_iqair.py
+│   └── gold/
+│       ├── 03_gold_daily_aqi_metrics_iqair.py
+│       ├── 04_gold_weather_correlation_monthly_iqair.py
+│       └── 05_gold_aqi_category_monthly_iqair.py
+├── sql/
+│   ├── ddl/
+│   │   ├── api_call_registry.sql
+│   │   ├── ingestion_config.sql
+│   │   ├── ingestion_entities.sql
+│   │   └── pipeline_audit.sql
+│   └── procedures/
+│       ├── check_api_limits.sql
+│       ├── end_pipeline_run.sql
+│       ├── get_execution_context.sql
+│       ├── log_activity_end.sql
+│       ├── log_activity_start.sql
+│       └── start_pipeline_run.sql
+└── README.md
 
 ---
 
@@ -74,6 +104,8 @@ Databricks notebooks are designed to be orchestrated externally (Azure Data Fact
 
 - `execution_id`
 - `pipeline_run_id`
+- `environment` — resolves the Databricks schema as `iqair_{environment}` (e.g. `iqair_dev`);
+  also stamped on Azure SQL audit records
 
 ### Bronze Entity Parameters
 
@@ -105,37 +137,82 @@ Databricks notebooks are designed to be orchestrated externally (Azure Data Fact
 
 ## Current Orchestration Status (Azure Data Factory)
 
-The Azure Data Factory pipeline is metadata-driven (lightweight, process-oriented design).
+Two pipelines, deliberately separated by concern:
+
+- **`PL_IQAir_MetadataDriven_Ingestion`** (orchestrator) — resolves execution context,
+  reads config, starts/ends the pipeline run in `pipeline_audit`, calls the execution
+  pipeline via `ExecutePipeline`
+- **`PL_IQAir_Main_ETL`** (execution) — metadata-driven Bronze ingestion + Silver + Gold
+
+This split keeps orchestration concerns (execution context, run bookkeeping) independent
+from ingestion/transformation logic, and makes it easier to extend either side later
+without touching the other.
 
 ### Execution Flow
 
-- Reads entity metadata from Azure SQL  
-- Executes ForEach over active cities  
-- Runs Databricks notebooks per layer (Bronze → Silver → Gold)  
-- Logs execution into `pipeline_audit`  
-- Supports restart by `pipeline_run_id`  
+- Orchestrator resolves `execution_id` (reused on FAILED/SKIPPED, new on SUCCESS)
+- Reads entity metadata from Azure SQL, validates API quota before any Bronze call
+- Bronze: sequential `ForEach` over active cities → Databricks notebook → audit log
+  (success/failure) per city
+- Silver runs once Bronze **completes** (regardless of per-city outcome — a single failed
+  city shouldn't block processing of the rest)
+- Gold (3 sequential notebooks) runs only if Silver **succeeded** (Gold reads finished
+  Silver tables, so a broken Silver run must not produce a Gold report on stale data)
+- A final status check makes the overall ADF run status reflect any layer failure
+  (details in Pipeline Status below)
+- Every activity start/end is logged into `pipeline_audit`; reruns reuse `execution_id`
+  and only request/process what's actually missing
 
-> ADF JSON definitions, linked services, and datasets will be added in a later step.
+### Orchestration Design Decisions
+
+This project favors simplicity and readability over implementing every possible
+production pattern. Some choices were made deliberately, given the project's scope and
+the IQAir API's characteristics:
+
+- **Sequential Bronze execution** — `ForEach.isSequential = true`. The IQAir Free API has
+  strict limits (5 calls/minute, 500/day); parallel execution would raise the risk of
+  hitting quotas without any practical benefit for this workload.
+- **API quota validated up front** — required calls are checked against remaining
+  daily/monthly quota *before* Bronze starts. If quota is insufficient, the pipeline fails
+  before any API request is made, avoiding partially-ingested Bronze data caused purely by
+  exhausted limits.
+- **Single execution at a time assumed** — this is a scheduled ingestion pipeline; a new
+  run starts only after the previous one finished. Execution-context reuse and quota
+  validation intentionally do not implement locking/reservation for concurrent runs.
+- **ADF retries disabled on the Bronze notebook** — see Error Handling below.
+
+### Error Handling
+
+API-level errors (HTTP errors, unavailable cities, etc.) are handled *inside* the Bronze
+notebook: they're captured, logged as an ingestion result (`api_result = FAILED`), and the
+notebook completes successfully. Because expected API failures are handled internally, ADF
+retry policies on the Bronze notebook activity are intentionally disabled — retrying would
+just re-consume API quota for a request that already failed for a substantive reason (bad
+city, API outage, etc.), not a transient one. Only unexpected infrastructure failures
+(cluster startup, connectivity, platform issues) are expected to fail the notebook activity
+itself — these do propagate to pipeline status via a dedicated failure flag/gate.
+
+### API Call Accounting
+
+The API registry stores one record per request; quota validation currently counts rows
+(`COUNT(*)`). This matches IQAir's Free-plan pricing, where every request costs exactly one
+call. If a provider ever moves to weighted/credit-based pricing, this would need to become
+a sum over a cost column instead of a row count.
 
 ---
 
 ## Planned Next Steps
 
-### Orchestration
+### Metadata Layer
 
-- ADF pipeline JSON (metadata-driven orchestration)
-
-### Metadata Layer (Azure SQL)
-
-- `ingestion_entities`
-- `ingestion_config`
-- `pipeline_audit`
-- Stored procedures for run control
+- Databricks Delta DDL (`iqair_dev` schema)
 
 ### Platform Enhancements
 
 - Lightweight Data Quality framework (PySpark)
-- Environment setup (dev-only initially, structured as environment-aware)
+- `prod` environment (schema-level only — same workspace/catalog, no separate Azure SQL
+  instance planned; environment separation there already exists at the row level via
+  `pipeline_audit.environment`)
 - CI/CD via GitHub Actions (linting, validation, optional deployment)
 
 ---
@@ -144,12 +221,23 @@ The Azure Data Factory pipeline is metadata-driven (lightweight, process-oriente
 
 ### API Constraints
 
-- API call registry is used strictly as a call counter
 - No historical backfill is possible due to API limitations
 
 ### Idempotency & Replay
 
 - Idempotency in Bronze is based on existence of a **SUCCESS** record for the current `execution_id + city`
 - Replay is possible only at the lake level (Bronze → Silver → Gold)
+- Reruns with the same `execution_id` only request/process entities still missing a
+  SUCCESS record, so a partial rerun doesn't re-request API quota for cities already
+  ingested
+
+### Pipeline Status
+
+- Layer failures (Bronze per-city, Silver, Gold) are recorded in `pipeline_audit`
+  regardless of ADF's own run status
+- Because Silver intentionally runs on Bronze's *Completed* (not *Succeeded*) dependency,
+  a Bronze failure would otherwise be silently absorbed by ADF and the run would report
+  Succeeded — a dedicated failure flag + final gate activity makes the overall pipeline
+  status reliable end to end, independent of that dependency choice
 
 ---
