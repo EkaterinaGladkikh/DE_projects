@@ -65,6 +65,7 @@ def write_registry_with_retry(df, jdbc_url, jdbc_properties, retries=3, sleep_se
 
 dbutils.widgets.text("execution_id", "")
 dbutils.widgets.text("pipeline_run_id", "")
+dbutils.widgets.text("environment", "")
 
 dbutils.widgets.text("city", "")
 dbutils.widgets.text("state", "")
@@ -72,15 +73,20 @@ dbutils.widgets.text("country", "")
 
 execution_id = dbutils.widgets.get("execution_id")
 pipeline_run_id = dbutils.widgets.get("pipeline_run_id")
+environment = dbutils.widgets.get("environment")
 
 city = dbutils.widgets.get("city")
 state = dbutils.widgets.get("state")
 country = dbutils.widgets.get("country")
 
+schema = f"iqair_{environment}"
+
 # COMMAND ----------
 
 # 4. JDBC connection (Azure SQL)
 # Used for API calls logging only
+
+secrets_scope = f"kv-iqair-{environment}"
 
 jdbc_hostname = "free-sql-server-02-0001.database.windows.net"
 jdbc_port = 1433
@@ -89,8 +95,8 @@ jdbc_database = "free-sql-db-0870579"
 jdbc_url = f"jdbc:sqlserver://{jdbc_hostname}:{jdbc_port};database={jdbc_database}"
 
 jdbc_properties = {
-    "user": dbutils.secrets.get(scope="kv-iqair-dev", key="sql-user"),
-    "password": dbutils.secrets.get(scope="kv-iqair-dev", key="sql-password"),
+    "user": dbutils.secrets.get(scope=secrets_scope, key="sql-user"),
+    "password": dbutils.secrets.get(scope=secrets_scope, key="sql-password"),
     "driver": "com.microsoft.sqlserver.jdbc.SQLServerDriver"
 }
 
@@ -100,7 +106,7 @@ jdbc_properties = {
 # Skip only if SUCCESS already ingested
 
 already_success = (
-    spark.table("bronze_iqair_snapshot")
+    spark.table(f"{schema}.bronze_iqair_snapshot")
     .filter(col("execution_id") == execution_id)
     .filter(col("city") == city)
     .filter(col("api_result") == "SUCCESS")
@@ -115,7 +121,7 @@ if already_success.take(1):
 
 # 6. API call (single attempt by design)
 
-api_key = dbutils.secrets.get("kv-iqair-dev", "iqair-api-key")
+api_key = dbutils.secrets.get(secrets_scope, "iqair-api-key")
 
 base_url = f"https://api.airvisual.com/v2/city"
 
@@ -209,4 +215,4 @@ bronze_df = spark.createDataFrame(
     schema=bronze_schema
 ).withColumn("ingestion_ts", current_timestamp())
 
-bronze_df.write.format("delta").mode("append").saveAsTable("bronze_iqair_snapshot")
+bronze_df.write.format("delta").mode("append").saveAsTable(f"{schema}.bronze_iqair_snapshot")

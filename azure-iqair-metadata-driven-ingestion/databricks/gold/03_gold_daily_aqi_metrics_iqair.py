@@ -31,15 +31,19 @@ from pyspark.sql.window import Window
 
 dbutils.widgets.text("execution_id", "")
 dbutils.widgets.text("pipeline_run_id", "")
+dbutils.widgets.text("environment", "")
 
 execution_id = dbutils.widgets.get("execution_id")
 pipeline_run_id = dbutils.widgets.get("pipeline_run_id")
+environment = dbutils.widgets.get("environment")
+
+schema = f"iqair_{environment}"
 
 # COMMAND ----------
 
 # 3. Read Silver
 
-pollution = spark.table("silver_iqair_pollution")
+pollution = spark.table(f"{schema}.silver_iqair_pollution")
 
 # COMMAND ----------
 
@@ -103,4 +107,4 @@ gold_metrics = (
 
 # 7. Write Gold (full refresh)
 
-gold_metrics.write.format("delta").mode("overwrite").saveAsTable("gold_daily_aqi_metrics")
+gold_metrics.write.format("delta").mode("overwrite").saveAsTable(f"{schema}.gold_daily_aqi_metrics")
