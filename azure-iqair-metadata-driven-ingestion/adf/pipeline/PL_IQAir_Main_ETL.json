@@ -677,6 +677,849 @@
 						}
 					]
 				}
+			},
+			{
+				"name": "IF_GoldEnabled",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "IF_SilverEnabled",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@pipeline().parameters.gold_enabled",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "SP_LogActivityStart_Gold_01",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_start]",
+								"storedProcedureParameters": {
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"environment": {
+										"value": {
+											"value": "@pipeline().parameters.environment",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"activity_name": {
+										"value": "NB_Gold_01",
+										"type": "String"
+									},
+									"entity": {
+										"value": null,
+										"type": "String"
+									},
+									"layer": {
+										"value": "Gold",
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "NB_Gold_01",
+							"type": "DatabricksNotebook",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityStart_Gold_01",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebookPath": "/DE_projects/azure-iqair-metadata-driven-ingestion/databricks/gold/03_gold_daily_aqi_metrics_iqair",
+								"baseParameters": {
+									"execution_id": {
+										"value": "@pipeline().parameters.execution_id",
+										"type": "Expression"
+									},
+									"pipeline_run_id": {
+										"value": "@pipeline().parameters.pipeline_run_id",
+										"type": "Expression"
+									},
+									"environment": {
+										"value": "@pipeline().parameters.environment",
+										"type": "Expression"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_Databricks_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SP_LogActivityEnd_Gold_01_Success",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "NB_Gold_01",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_end]",
+								"storedProcedureParameters": {
+									"activity_name": {
+										"value": "NB_Gold_01",
+										"type": "String"
+									},
+									"entity": {
+										"value": null,
+										"type": "String"
+									},
+									"error_message": {
+										"value": null,
+										"type": "String"
+									},
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"final_status": {
+										"value": "SUCCESS",
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SP_LogActivityEnd_Gold_01_Failed",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "NB_Gold_01",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_end]",
+								"storedProcedureParameters": {
+									"activity_name": {
+										"value": "NB_Gold_01",
+										"type": "String"
+									},
+									"entity": {
+										"value": null,
+										"type": "String"
+									},
+									"error_message": {
+										"value": {
+											"value": "@activity('NB_Gold_01').error.message",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"final_status": {
+										"value": "FAILED",
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SET_RunHasFailures_Gold_01",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityEnd_Gold_01_Failed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "run_has_failures",
+								"value": true
+							}
+						},
+						{
+							"name": "FAIL_Gold_01",
+							"type": "Fail",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityEnd_Gold_01_Failed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@concat('Gold step 03_gold_daily_aqi_metrics_iqair failed. execution_id=', pipeline().parameters.execution_id, '. Error: ', activity('NB_Gold_01').error.message)",
+									"type": "Expression"
+								},
+								"errorCode": "GOLD_01_FAILED"
+							}
+						},
+						{
+							"name": "SP_LogActivityStart_Gold_02",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityEnd_Gold_01_Success",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_start]",
+								"storedProcedureParameters": {
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"environment": {
+										"value": {
+											"value": "@pipeline().parameters.environment",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"activity_name": {
+										"value": "NB_Gold_02",
+										"type": "String"
+									},
+									"entity": {
+										"value": null,
+										"type": "String"
+									},
+									"layer": {
+										"value": "Gold",
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "NB_Gold_02",
+							"type": "DatabricksNotebook",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityStart_Gold_02",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebookPath": "/DE_projects/azure-iqair-metadata-driven-ingestion/databricks/gold/04_gold_weather_correlation_monthly_iqair",
+								"baseParameters": {
+									"execution_id": {
+										"value": "@pipeline().parameters.execution_id",
+										"type": "Expression"
+									},
+									"pipeline_run_id": {
+										"value": "@pipeline().parameters.pipeline_run_id",
+										"type": "Expression"
+									},
+									"environment": {
+										"value": "@pipeline().parameters.environment",
+										"type": "Expression"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_Databricks_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SP_LogActivityEnd_Gold_02_Success",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "NB_Gold_02",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_end]",
+								"storedProcedureParameters": {
+									"activity_name": {
+										"value": "NB_Gold_02",
+										"type": "String"
+									},
+									"entity": {
+										"value": null,
+										"type": "String"
+									},
+									"error_message": {
+										"value": null,
+										"type": "String"
+									},
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"final_status": {
+										"value": "SUCCESS",
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SP_LogActivityEnd_Gold_02_Failed",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "NB_Gold_02",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_end]",
+								"storedProcedureParameters": {
+									"activity_name": {
+										"value": "NB_Gold_02",
+										"type": "String"
+									},
+									"entity": {
+										"value": null,
+										"type": "String"
+									},
+									"error_message": {
+										"value": {
+											"value": "@activity('NB_Gold_02').error.message",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"final_status": {
+										"value": "FAILED",
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SET_RunHasFailures_Gold_02",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityEnd_Gold_02_Failed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "run_has_failures",
+								"value": true
+							}
+						},
+						{
+							"name": "FAIL_Gold_02",
+							"type": "Fail",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityEnd_Gold_02_Failed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@concat('Gold step 04_gold_weather_correlation_monthly_iqair failed. execution_id=', pipeline().parameters.execution_id, '. Error: ', activity('NB_Gold_02').error.message)",
+									"type": "Expression"
+								},
+								"errorCode": "GOLD_02_FAILED"
+							}
+						},
+						{
+							"name": "SP_LogActivityStart_Gold_03",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityEnd_Gold_02_Success",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_start]",
+								"storedProcedureParameters": {
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"environment": {
+										"value": {
+											"value": "@pipeline().parameters.environment",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"activity_name": {
+										"value": "NB_Gold_03",
+										"type": "String"
+									},
+									"entity": {
+										"value": null,
+										"type": "String"
+									},
+									"layer": {
+										"value": "Gold",
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "NB_Gold_03",
+							"type": "DatabricksNotebook",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityStart_Gold_03",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebookPath": "/DE_projects/azure-iqair-metadata-driven-ingestion/databricks/gold/05_gold_aqi_category_monthly_iqair",
+								"baseParameters": {
+									"execution_id": {
+										"value": "@pipeline().parameters.execution_id",
+										"type": "Expression"
+									},
+									"pipeline_run_id": {
+										"value": "@pipeline().parameters.pipeline_run_id",
+										"type": "Expression"
+									},
+									"environment": {
+										"value": "@pipeline().parameters.environment",
+										"type": "Expression"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_Databricks_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SP_LogActivityEnd_Gold_03_Success",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "NB_Gold_03",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_end]",
+								"storedProcedureParameters": {
+									"activity_name": {
+										"value": "NB_Gold_03",
+										"type": "String"
+									},
+									"entity": {
+										"value": null,
+										"type": "String"
+									},
+									"error_message": {
+										"value": null,
+										"type": "String"
+									},
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"final_status": {
+										"value": "SUCCESS",
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SP_LogActivityEnd_Gold_03_Failed",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "NB_Gold_03",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:10:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[log_activity_end]",
+								"storedProcedureParameters": {
+									"activity_name": {
+										"value": "NB_Gold_03",
+										"type": "String"
+									},
+									"entity": {
+										"value": null,
+										"type": "String"
+									},
+									"error_message": {
+										"value": {
+											"value": "@activity('NB_Gold_03').error.message",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"execution_id": {
+										"value": {
+											"value": "@pipeline().parameters.execution_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"final_status": {
+										"value": "FAILED",
+										"type": "String"
+									},
+									"pipeline_run_id": {
+										"value": {
+											"value": "@pipeline().parameters.pipeline_run_id",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSQL_IQAir",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "SET_RunHasFailures_Gold_03",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityEnd_Gold_03_Failed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "run_has_failures",
+								"value": true
+							}
+						},
+						{
+							"name": "FAIL_Gold_03",
+							"type": "Fail",
+							"dependsOn": [
+								{
+									"activity": "SP_LogActivityEnd_Gold_03_Failed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@concat('Gold step 05_gold_aqi_category_monthly_iqair failed. execution_id=', pipeline().parameters.execution_id, '. Error: ', activity('NB_Gold_03').error.message)",
+									"type": "Expression"
+								},
+								"errorCode": "GOLD_03_FAILED"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "IF_FinalStatusGate",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "IF_GoldEnabled",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@variables('run_has_failures')",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "FAIL_Pipeline_RunHadFailures",
+							"type": "Fail",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@concat('Main_ETL run completed with one or more failed steps (bronze/silver/gold). execution_id=', pipeline().parameters.execution_id, '. Check pipeline_audit for details.')",
+									"type": "Expression"
+								},
+								"errorCode": "RUN_HAD_FAILURES"
+							}
+						}
+					]
+				}
 			}
 		],
 		"parameters": {
