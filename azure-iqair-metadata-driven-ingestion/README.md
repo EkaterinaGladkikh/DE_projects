@@ -58,6 +58,7 @@ their Delta schema as `iqair_{environment}` (e.g. `iqair_dev`).
 
 ## Current repository structure
 
+```
 azure-iqair-metadata-driven-ingestion/
 ├── adf/
 │   ├── dataset/
@@ -93,6 +94,7 @@ azure-iqair-metadata-driven-ingestion/
 │       ├── log_activity_start.sql
 │       └── start_pipeline_run.sql
 └── README.md
+```
 
 ---
 
