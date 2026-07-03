@@ -37,16 +37,20 @@ from pyspark.sql.window import Window
 
 dbutils.widgets.text("execution_id", "")
 dbutils.widgets.text("pipeline_run_id", "")
+dbutils.widgets.text("environment", "")
 
 execution_id = dbutils.widgets.get("execution_id")
 pipeline_run_id = dbutils.widgets.get("pipeline_run_id")
+environment = dbutils.widgets.get("environment")
+
+schema = f"iqair_{environment}"
 
 # COMMAND ----------
 
 # 3. Read Bronze (trusted only)
 
 bronze = (
-    spark.table("bronze_iqair_snapshot")
+    spark.table(f"{schema}.bronze_iqair_snapshot")
     .filter(col("api_result") == "SUCCESS")
     .filter(col("raw_payload").isNotNull())
 )
@@ -138,5 +142,5 @@ weather = (
 
 # 6. Write Silver (full refresh)
 
-pollution.write.format("delta").mode("overwrite").saveAsTable("silver_iqair_pollution")
-weather.write.format("delta").mode("overwrite").saveAsTable("silver_iqair_weather")
+pollution.write.format("delta").mode("overwrite").saveAsTable(f"{schema}.silver_iqair_pollution")
+weather.write.format("delta").mode("overwrite").saveAsTable(f"{schema}.silver_iqair_weather")
