@@ -5,6 +5,8 @@ CREATE OR ALTER PROCEDURE dbo.log_activity_start
     @environment     NVARCHAR(50),
     @activity_name   NVARCHAR(200),
     @entity          NVARCHAR(100) = NULL,
+    @state           NVARCHAR(100) = NULL,
+    @country         NVARCHAR(100) = NULL,
     @layer           NVARCHAR(20) = NULL
 )
 AS
@@ -19,6 +21,8 @@ BEGIN
         environment,
         activity_name,
         entity,
+        state,
+        country,
         layer,
         status,
         start_ts
@@ -31,6 +35,8 @@ BEGIN
         @environment,
         @activity_name,
         @entity,
+        @state,
+        @country,
         @layer,
         'STARTED',
         SYSDATETIME()
