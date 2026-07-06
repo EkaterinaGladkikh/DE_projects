@@ -109,6 +109,8 @@ already_success = (
     spark.table(f"{schema}.bronze_iqair_snapshot")
     .filter(col("execution_id") == execution_id)
     .filter(col("city") == city)
+    .filter(col("state") == state)
+    .filter(col("country") == country)
     .filter(col("api_result") == "SUCCESS")
     .limit(1)
 )
@@ -173,7 +175,10 @@ if api_call_ts is not None:
     registry_df = spark.createDataFrame([Row(
         execution_id=execution_id,
         pipeline_run_id=pipeline_run_id,
+        environment=environment,
         city=city,
+        state=state,
+        country=country,
         call_ts=api_call_ts
     )])
 
@@ -188,8 +193,8 @@ bronze_schema = StructType([
     StructField("execution_id", StringType(), False),
     StructField("pipeline_run_id", StringType(), True),
     StructField("city", StringType(), False),
-    StructField("state", StringType(), True),
-    StructField("country", StringType(), True),
+    StructField("state", StringType(), False),
+    StructField("country", StringType(), False),
     StructField("api_result", StringType(), False),
     StructField("http_status_code", IntegerType(), True),
     StructField("api_status", StringType(), True),
@@ -216,3 +221,16 @@ bronze_df = spark.createDataFrame(
 ).withColumn("ingestion_ts", current_timestamp())
 
 bronze_df.write.format("delta").mode("append").saveAsTable(f"{schema}.bronze_iqair_snapshot")
+
+# COMMAND ----------
+
+# 9. Fail the notebook on unsuccessful API result
+# Ordering is deliberate: HTTP -> registry write -> bronze append -> raise.
+# Raising earlier would lose the quota count and the Bronze row for a failed call.
+ 
+if api_result != "SUCCESS":
+    raise Exception(
+        f"Bronze API ingestion failed for city={city}, state={state}, country={country} | "
+        f"http_status_code={http_status_code}, api_status={api_status}, "
+        f"error_message={error_message}"
+    )
