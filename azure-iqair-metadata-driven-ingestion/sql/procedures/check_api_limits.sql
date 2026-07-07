@@ -19,12 +19,17 @@ BEGIN
     DECLARE @month_calls INT;
 
     SELECT @max_day = CAST(config_value AS INT)
-    FROM dbo.ingestion_config
+    FROM dbo.api_limits
     WHERE config_key = 'max_calls_per_day';
 
     SELECT @max_month = CAST(config_value AS INT)
-    FROM dbo.ingestion_config
+    FROM dbo.api_limits
     WHERE config_key = 'max_calls_per_month';
+
+    IF (@max_day IS NULL OR @max_month IS NULL)
+    BEGIN
+        THROW 50003, 'API limits are not configured (max_calls_per_day / max_calls_per_month missing in api_limits).', 1;
+    END;
 
     SELECT @day_calls = COUNT(*)
     FROM dbo.api_call_registry
