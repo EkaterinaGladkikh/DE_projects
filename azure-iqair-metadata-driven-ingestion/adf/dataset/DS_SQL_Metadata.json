@@ -19,7 +19,7 @@
 		],
 		"typeProperties": {
 			"schema": "dbo",
-			"table": "ingestion_config"
+			"table": "api_limits"
 		}
 	}
 }
