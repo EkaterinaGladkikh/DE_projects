@@ -51,8 +51,7 @@ Business aggregates built only from Silver (full refresh, deterministic):
 
 ### Environment-aware schemas (Databricks)
 
-All Bronze/Silver/Gold notebooks receive an `environment` parameter from ADF and resolve
-their Delta schema as `iqair_{environment}` (e.g. `iqair_dev`).
+All Bronze/Silver/Gold notebooks receive an `environment` parameter from ADF and resolve their Delta schema as `iqair_{environment}` (e.g. `iqair_dev`).
 
 ---
 
@@ -88,6 +87,7 @@ azure-iqair-metadata-driven-ingestion/
 │   │   └── pipeline_audit.sql
 │   └── procedures/
 │       ├── check_api_limits.sql
+│       ├── check_minute_limit.sql
 │       ├── end_pipeline_run.sql
 │       ├── get_execution_context.sql
 │       ├── log_activity_end.sql
@@ -175,9 +175,21 @@ the IQAir API's characteristics:
   strict limits (5 calls/minute, 500/day); parallel execution would raise the risk of
   hitting quotas without any practical benefit for this workload.
 - **API quota validated up front** — required calls are checked against remaining
-  daily/monthly quota *before* Bronze starts. If quota is insufficient, the pipeline fails
-  before any API request is made, avoiding partially-ingested Bronze data caused purely by
-  exhausted limits.
+  daily/monthly quota *before* Bronze starts (`check_api_limits`). If quota is insufficient,
+  the pipeline fails before any API request is made, avoiding partially-ingested Bronze data
+  caused purely by exhausted limits. Missing limit config is treated as a hard error (fail-
+  fast), not an unbounded quota.
+- **Per-minute limit enforced inside the loop** — the 5-calls/minute cap is checked per city
+  *before* each Bronze call (`check_minute_limit`, a trailing-60-second `COUNT(*)` over the
+  registry). Under the current sequential setup (~40 s/city) the rate never approaches the
+  cap, so this is a defensive invariant rather than an active throttle: it keeps the limit
+  enforced if the workload later speeds up (more cities, faster notebook, parallelism). On a
+  breach the city is blocked (no API call, no registry row), the run is failed via the final
+  gate, and the blocked city is picked up on the next rerun.
+- **Layer toggles are pipeline parameters** — `bronze/silver/gold/dq_enabled` are parameters
+  of `PL_IQAir_MetadataDriven_Ingestion` (not rows in a config table), since they describe
+  *what to run this time*, not reference metadata. The limits table (`api_limits`) holds only
+  `max_calls_*`. `dq_enabled` defaults to `false` — a placeholder for a future DQ layer.
 - **Single execution at a time assumed** — this is a scheduled ingestion pipeline; a new
   run starts only after the previous one finished. Execution-context reuse and quota
   validation intentionally do not implement locking/reservation for concurrent runs.
@@ -212,6 +224,11 @@ The API registry stores one record per request; quota validation currently count
 (`COUNT(*)`). This matches IQAir's Free-plan pricing, where every request costs exactly one
 call. If a provider ever moves to weighted/credit-based pricing, this would need to become
 a sum over a cost column instead of a row count.
+
+Limit values live in the `api_limits` table (`max_calls_per_minute` / `_per_day` /
+`_per_month`). Both `check_api_limits` and `check_minute_limit` fail-fast if their limit is
+missing, so a misconfigured limits table surfaces as an explicit error rather than silently
+disabling the guard.
 
 ---
 
