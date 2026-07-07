@@ -18,7 +18,7 @@
 					"source": {
 						"type": "AzureSqlSource",
 						"sqlReaderQuery": {
-							"value": "@concat('SELECT e.city, e.state, e.country FROM ingestion_entities e WHERE e.is_active = 1   AND NOT EXISTS (         SELECT 1 FROM pipeline_audit pa         WHERE pa.record_type = ''ACTIVITY''           AND pa.execution_id = ''',pipeline().parameters.execution_id,'''           AND pa.entity = e.city           AND pa.layer = ''Bronze''           AND pa.status = ''SUCCESS''   ) ORDER BY e.city')",
+							"value": "@concat('SELECT e.city, e.state, e.country FROM ingestion_entities e WHERE e.is_active = 1   AND e.environment = ''',pipeline().parameters.environment,'''   AND NOT EXISTS (         SELECT 1 FROM api_call_registry r         WHERE r.execution_id = ''',pipeline().parameters.execution_id,'''           AND r.environment = ''',pipeline().parameters.environment,'''           AND r.city = e.city           AND r.state = e.state           AND r.country = e.country   ) ORDER BY e.city')",
 							"type": "Expression"
 						},
 						"queryTimeout": "02:00:00",
@@ -123,6 +123,20 @@
 									},
 									"layer": {
 										"value": "Bronze",
+										"type": "String"
+									},
+									"state": {
+										"value": {
+											"value": "@item().state",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"country": {
+										"value": {
+											"value": "@item().country",
+											"type": "Expression"
+										},
 										"type": "String"
 									}
 								}
@@ -239,6 +253,20 @@
 											"type": "Expression"
 										},
 										"type": "String"
+									},
+									"state": {
+										"value": {
+											"value": "@item().state",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"country": {
+										"value": {
+											"value": "@item().country",
+											"type": "Expression"
+										},
+										"type": "String"
 									}
 								}
 							},
@@ -304,6 +332,20 @@
 											"type": "Expression"
 										},
 										"type": "String"
+									},
+									"state": {
+										"value": {
+											"value": "@item().state",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"country": {
+										"value": {
+											"value": "@item().country",
+											"type": "Expression"
+										},
+										"type": "String"
 									}
 								}
 							},
@@ -331,26 +373,6 @@
 							"typeProperties": {
 								"variableName": "run_has_failures",
 								"value": true
-							}
-						},
-						{
-							"name": "FAIL_Bronze_City",
-							"type": "Fail",
-							"dependsOn": [
-								{
-									"activity": "SP_LogActivityEnd_Bronze_Failed",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"userProperties": [],
-							"typeProperties": {
-								"message": {
-									"value": "@concat('Bronze ingestion failed for city=', item().city, ' execution_id=', pipeline().parameters.execution_id, '. Error: ', activity('NB_Bronze').error.message)",
-									"type": "Expression"
-								},
-								"errorCode": "BRONZE_CITY_FAILED"
 							}
 						}
 					]
@@ -457,10 +479,6 @@
 										"value": "NB_Silver",
 										"type": "String"
 									},
-									"entity": {
-										"value": null,
-										"type": "String"
-									},
 									"layer": {
 										"value": "Silver",
 										"type": "String"
@@ -539,10 +557,6 @@
 										"value": "NB_Silver",
 										"type": "String"
 									},
-									"entity": {
-										"value": null,
-										"type": "String"
-									},
 									"error_message": {
 										"value": null,
 										"type": "String"
@@ -598,10 +612,6 @@
 										"value": "NB_Silver",
 										"type": "String"
 									},
-									"entity": {
-										"value": null,
-										"type": "String"
-									},
 									"error_message": {
 										"value": {
 											"value": "@activity('NB_Silver').error.message",
@@ -632,27 +642,6 @@
 							"linkedServiceName": {
 								"referenceName": "LS_AzureSQL_IQAir",
 								"type": "LinkedServiceReference"
-							}
-						},
-						{
-							"name": "SET_RunHasFailures_Silver",
-							"type": "SetVariable",
-							"dependsOn": [
-								{
-									"activity": "SP_LogActivityEnd_Silver_Failed",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "run_has_failures",
-								"value": true
 							}
 						},
 						{
@@ -736,10 +725,6 @@
 										"value": "NB_Gold_01",
 										"type": "String"
 									},
-									"entity": {
-										"value": null,
-										"type": "String"
-									},
 									"layer": {
 										"value": "Gold",
 										"type": "String"
@@ -818,10 +803,6 @@
 										"value": "NB_Gold_01",
 										"type": "String"
 									},
-									"entity": {
-										"value": null,
-										"type": "String"
-									},
 									"error_message": {
 										"value": null,
 										"type": "String"
@@ -877,10 +858,6 @@
 										"value": "NB_Gold_01",
 										"type": "String"
 									},
-									"entity": {
-										"value": null,
-										"type": "String"
-									},
 									"error_message": {
 										"value": {
 											"value": "@activity('NB_Gold_01').error.message",
@@ -911,27 +888,6 @@
 							"linkedServiceName": {
 								"referenceName": "LS_AzureSQL_IQAir",
 								"type": "LinkedServiceReference"
-							}
-						},
-						{
-							"name": "SET_RunHasFailures_Gold_01",
-							"type": "SetVariable",
-							"dependsOn": [
-								{
-									"activity": "SP_LogActivityEnd_Gold_01_Failed",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "run_has_failures",
-								"value": true
 							}
 						},
 						{
@@ -999,10 +955,6 @@
 									},
 									"activity_name": {
 										"value": "NB_Gold_02",
-										"type": "String"
-									},
-									"entity": {
-										"value": null,
 										"type": "String"
 									},
 									"layer": {
@@ -1083,10 +1035,6 @@
 										"value": "NB_Gold_02",
 										"type": "String"
 									},
-									"entity": {
-										"value": null,
-										"type": "String"
-									},
 									"error_message": {
 										"value": null,
 										"type": "String"
@@ -1142,10 +1090,6 @@
 										"value": "NB_Gold_02",
 										"type": "String"
 									},
-									"entity": {
-										"value": null,
-										"type": "String"
-									},
 									"error_message": {
 										"value": {
 											"value": "@activity('NB_Gold_02').error.message",
@@ -1176,27 +1120,6 @@
 							"linkedServiceName": {
 								"referenceName": "LS_AzureSQL_IQAir",
 								"type": "LinkedServiceReference"
-							}
-						},
-						{
-							"name": "SET_RunHasFailures_Gold_02",
-							"type": "SetVariable",
-							"dependsOn": [
-								{
-									"activity": "SP_LogActivityEnd_Gold_02_Failed",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "run_has_failures",
-								"value": true
 							}
 						},
 						{
@@ -1264,10 +1187,6 @@
 									},
 									"activity_name": {
 										"value": "NB_Gold_03",
-										"type": "String"
-									},
-									"entity": {
-										"value": null,
 										"type": "String"
 									},
 									"layer": {
@@ -1348,10 +1267,6 @@
 										"value": "NB_Gold_03",
 										"type": "String"
 									},
-									"entity": {
-										"value": null,
-										"type": "String"
-									},
 									"error_message": {
 										"value": null,
 										"type": "String"
@@ -1407,10 +1322,6 @@
 										"value": "NB_Gold_03",
 										"type": "String"
 									},
-									"entity": {
-										"value": null,
-										"type": "String"
-									},
 									"error_message": {
 										"value": {
 											"value": "@activity('NB_Gold_03').error.message",
@@ -1441,27 +1352,6 @@
 							"linkedServiceName": {
 								"referenceName": "LS_AzureSQL_IQAir",
 								"type": "LinkedServiceReference"
-							}
-						},
-						{
-							"name": "SET_RunHasFailures_Gold_03",
-							"type": "SetVariable",
-							"dependsOn": [
-								{
-									"activity": "SP_LogActivityEnd_Gold_03_Failed",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "run_has_failures",
-								"value": true
 							}
 						},
 						{

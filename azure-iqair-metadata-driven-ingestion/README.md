@@ -24,7 +24,7 @@ This project is intentionally designed to mirror real-world constraints:
 - Raw API payload stored as-is (JSON string)
 - Append-only snapshot table
 - Stores both successful and failed calls
-- Idempotency check: skip if **SUCCESS already ingested** for `execution_id + city`
+- Idempotency check: skip if **SUCCESS already ingested** for `execution_id + city + state + country`
 - Logs API call attempts into Azure SQL registry (as a call counter)
 
 ### Silver (Delta)
@@ -185,14 +185,26 @@ the IQAir API's characteristics:
 
 ### Error Handling
 
-API-level errors (HTTP errors, unavailable cities, etc.) are handled *inside* the Bronze
-notebook: they're captured, logged as an ingestion result (`api_result = FAILED`), and the
-notebook completes successfully. Because expected API failures are handled internally, ADF
-retry policies on the Bronze notebook activity are intentionally disabled — retrying would
-just re-consume API quota for a request that already failed for a substantive reason (bad
-city, API outage, etc.), not a transient one. Only unexpected infrastructure failures
-(cluster startup, connectivity, platform issues) are expected to fail the notebook activity
-itself — these do propagate to pipeline status via a dedicated failure flag/gate.
+API-level errors (HTTP errors, unavailable cities, etc.) are captured inside the Bronze
+notebook and persisted first — the call is written to `api_call_registry` (quota is spent)
+and an `api_result = FAILED` row is appended to Bronze — and only *then* does the notebook
+`raise`, surfacing the failure as a `Failed` notebook activity. This ordering (HTTP →
+registry → Bronze append → raise) guarantees that a failed call is still counted against
+quota and captured in Bronze before the notebook fails, so the run is reported honestly
+instead of falsely going green.
+
+Because the Bronze `ForEach` is sequential and the failed iteration is absorbed by the
+Bronze failure branch (there is no per-city `Fail` activity), a single failed city does not
+abort the loop — remaining cities are still processed. The per-city failure sets
+`run_has_failures`, which the final gate turns into an overall pipeline failure.
+
+ADF retry policies on the Bronze notebook activity are intentionally disabled: expected API
+failures (bad city, API outage) are substantive, not transient, so retrying would just
+re-consume API quota for a request that already failed for a real reason. Unexpected
+infrastructure failures (cluster startup, connectivity, platform issues) fail the notebook
+*before* the registry/Bronze writes, so they are distinguishable from API failures by the
+absence of a registry/Bronze row, and propagate to pipeline status through the same
+`Failed` branch.
 
 ### API Call Accounting
 
@@ -227,11 +239,17 @@ a sum over a cost column instead of a row count.
 
 ### Idempotency & Replay
 
-- Idempotency in Bronze is based on existence of a **SUCCESS** record for the current `execution_id + city`
+- Idempotency in Bronze is enforced at two independent layers, both keyed on the full
+  `execution_id + city + state + country`:
+  - the notebook skips the API call if a **SUCCESS** snapshot already exists (protects at
+    the record level, e.g. a manual notebook rerun bypassing the orchestrator)
+  - `LKP_Entities` only hands the loop cities with **no spent call** in `api_call_registry`
+    (a call is a call regardless of result), so a rerun with the same `execution_id`
+    doesn't re-request quota for cities already attempted
+- The two checks deliberately use different criteria: `LKP_Entities` asks "was a call
+  spent?", the notebook asks "is there already a successful snapshot?" — the latter keeps a
+  prior `FAILED` row from blocking a legitimate manual retry of that city
 - Replay is possible only at the lake level (Bronze → Silver → Gold)
-- Reruns with the same `execution_id` only request/process entities still missing a
-  SUCCESS record, so a partial rerun doesn't re-request API quota for cities already
-  ingested
 
 ### Pipeline Status
 
@@ -241,5 +259,11 @@ a sum over a cost column instead of a row count.
   a Bronze failure would otherwise be silently absorbed by ADF and the run would report
   Succeeded — a dedicated failure flag + final gate activity makes the overall pipeline
   status reliable end to end, independent of that dependency choice
+- `pipeline_audit` logs activities across all layers, so the audited subject lives in a
+  generic `entity` column — it holds the city for Bronze activities and is `null` for
+  Silver/Gold (which have no per-city entity). The `state` / `country` columns are that
+  entity's attributes and are likewise `null` for Silver/Gold. This is why the audit key is
+  `entity + state + country` here, while `api_call_registry` (Bronze-only) names the same
+  key `city + state + country`
 
 ---

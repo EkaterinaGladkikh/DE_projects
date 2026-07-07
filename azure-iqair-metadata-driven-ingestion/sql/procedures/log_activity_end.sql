@@ -3,6 +3,8 @@ CREATE OR ALTER PROCEDURE dbo.log_activity_end
     @execution_id    NVARCHAR(100),
     @activity_name   NVARCHAR(200),
     @entity          NVARCHAR(100) = NULL,
+    @state           NVARCHAR(100) = NULL,
+    @country         NVARCHAR(100) = NULL,
     @pipeline_run_id NVARCHAR(100),
     @final_status    NVARCHAR(20),
     @error_message   NVARCHAR(MAX) = NULL
@@ -25,6 +27,8 @@ BEGIN
       AND pipeline_run_id    = @pipeline_run_id
       AND activity_name      = @activity_name
       AND ISNULL(entity, '') = ISNULL(@entity, '')
+      AND ISNULL(state, '')   = ISNULL(@state, '')
+      AND ISNULL(country, '') = ISNULL(@country, '')
       AND end_ts IS NULL;
 END;
 GO
