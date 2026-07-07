@@ -1,7 +1,8 @@
-CREATE TABLE dbo.ingestion_config
+CREATE TABLE dbo.api_limits
 (
     config_key   NVARCHAR(100) NOT NULL
-        CONSTRAINT PK_ingestion_config PRIMARY KEY,
+        CONSTRAINT PK_api_limits PRIMARY KEY,
+
     config_value NVARCHAR(200) NOT NULL
 );
 GO
