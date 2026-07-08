@@ -55,44 +55,11 @@
 				}
 			},
 			{
-				"name": "LKP_Config",
-				"type": "Lookup",
-				"dependsOn": [
-					{
-						"activity": "SET_ExecutionId",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.00:10:00",
-					"retry": 2,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"source": {
-						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT\n    MAX(CASE WHEN config_key = 'bronze_enabled' THEN\n        CASE WHEN LOWER(config_value) = 'true' THEN 1 ELSE 0 END\n    END) AS bronze_enabled,\n\n    MAX(CASE WHEN config_key = 'silver_enabled' THEN\n        CASE WHEN LOWER(config_value) = 'true' THEN 1 ELSE 0 END\n    END) AS silver_enabled,\n\n    MAX(CASE WHEN config_key = 'gold_enabled' THEN\n        CASE WHEN LOWER(config_value) = 'true' THEN 1 ELSE 0 END\n    END) AS gold_enabled,\n\n    MAX(CASE WHEN config_key = 'dq_enabled' THEN\n        CASE WHEN LOWER(config_value) = 'true' THEN 1 ELSE 0 END\n    END) AS dq_enabled\nFROM ingestion_config;",
-						"queryTimeout": "02:00:00",
-						"partitionOption": "None"
-					},
-					"dataset": {
-						"referenceName": "DS_SQL_Metadata",
-						"type": "DatasetReference"
-					},
-					"firstRowOnly": true
-				}
-			},
-			{
 				"name": "SP_StartPipelineRun",
 				"type": "SqlServerStoredProcedure",
 				"dependsOn": [
 					{
-						"activity": "LKP_Config",
+						"activity": "SET_ExecutionId",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -251,30 +218,6 @@
 						"dependencyConditions": [
 							"Succeeded"
 						]
-					},
-					{
-						"activity": "SET_BronzeEnabled",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					},
-					{
-						"activity": "SET_SilverEnabled",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					},
-					{
-						"activity": "SET_GoldEnabled",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					},
-					{
-						"activity": "SET_DqEnabled",
-						"dependencyConditions": [
-							"Succeeded"
-						]
 					}
 				],
 				"policy": {
@@ -301,117 +244,21 @@
 							"type": "Expression"
 						},
 						"bronze_enabled": {
-							"value": "@variables('bronze_enabled')",
+							"value": "@pipeline().parameters.bronze_enabled",
 							"type": "Expression"
 						},
 						"silver_enabled": {
-							"value": "@variables('silver_enabled')",
+							"value": "@pipeline().parameters.silver_enabled",
 							"type": "Expression"
 						},
 						"gold_enabled": {
-							"value": "@variables('gold_enabled')",
+							"value": "@pipeline().parameters.gold_enabled",
 							"type": "Expression"
 						},
 						"dq_enabled": {
-							"value": "@variables('dq_enabled')",
+							"value": "@pipeline().parameters.dq_enabled",
 							"type": "Expression"
 						}
-					}
-				}
-			},
-			{
-				"name": "SET_BronzeEnabled",
-				"type": "SetVariable",
-				"dependsOn": [
-					{
-						"activity": "LKP_Config",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"variableName": "bronze_enabled",
-					"value": {
-						"value": "@bool(activity('LKP_Config').output.firstRow.bronze_enabled)",
-						"type": "Expression"
-					}
-				}
-			},
-			{
-				"name": "SET_SilverEnabled",
-				"type": "SetVariable",
-				"dependsOn": [
-					{
-						"activity": "LKP_Config",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"variableName": "silver_enabled",
-					"value": {
-						"value": "@bool(activity('LKP_Config').output.firstRow.silver_enabled)",
-						"type": "Expression"
-					}
-				}
-			},
-			{
-				"name": "SET_GoldEnabled",
-				"type": "SetVariable",
-				"dependsOn": [
-					{
-						"activity": "LKP_Config",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"variableName": "gold_enabled",
-					"value": {
-						"value": "@bool(activity('LKP_Config').output.firstRow.gold_enabled)",
-						"type": "Expression"
-					}
-				}
-			},
-			{
-				"name": "SET_DqEnabled",
-				"type": "SetVariable",
-				"dependsOn": [
-					{
-						"activity": "LKP_Config",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"variableName": "dq_enabled",
-					"value": {
-						"value": "@bool(activity('LKP_Config').output.firstRow.dq_enabled)",
-						"type": "Expression"
 					}
 				}
 			}
@@ -420,23 +267,27 @@
 			"environment": {
 				"type": "string",
 				"defaultValue": "dev"
+			},
+			"bronze_enabled": {
+				"type": "bool",
+				"defaultValue": true
+			},
+			"silver_enabled": {
+				"type": "bool",
+				"defaultValue": true
+			},
+			"gold_enabled": {
+				"type": "bool",
+				"defaultValue": true
+			},
+			"dq_enabled": {
+				"type": "bool",
+				"defaultValue": false
 			}
 		},
 		"variables": {
 			"execution_id": {
 				"type": "String"
-			},
-			"bronze_enabled": {
-				"type": "Boolean"
-			},
-			"silver_enabled": {
-				"type": "Boolean"
-			},
-			"gold_enabled": {
-				"type": "Boolean"
-			},
-			"dq_enabled": {
-				"type": "Boolean"
 			}
 		},
 		"annotations": [],
