@@ -86,13 +86,9 @@ schema = f"iqair_{environment}"
 # 4. JDBC connection (Azure SQL)
 # Used for API calls logging only
 
-secrets_scope = f"kv-iqair-{environment}"
+secrets_scope = "kv-iqair"
 
-jdbc_hostname = "free-sql-server-02-0001.database.windows.net"
-jdbc_port = 1433
-jdbc_database = "free-sql-db-0870579"
-
-jdbc_url = f"jdbc:sqlserver://{jdbc_hostname}:{jdbc_port};database={jdbc_database}"
+jdbc_url = dbutils.secrets.get(scope=secrets_scope, key="sql-jdbc-url")
 
 jdbc_properties = {
     "user": dbutils.secrets.get(scope=secrets_scope, key="sql-user"),
