@@ -68,13 +68,16 @@ daily = (
 
 # COMMAND ----------
 
-# 5. Rolling 7d per city (based on daily rows)
+# 5. Rolling 7d per city (7 CALENDAR days)
+# rangeBetween works on the date's day-number, so the window is
+# [date - 6 days .. date]. days_in_window (1..7) counts how many of those
+# calendar days have data — a completeness indicator.
 
 w7 = (
     Window
     .partitionBy("city", "state", "country")
-    .orderBy(F.col("date").cast("date"))
-    .rowsBetween(-6, 0)
+    .orderBy(F.datediff(F.col("date"), F.lit("1970-01-01")))
+    .rangeBetween(-6, 0)
 )
 
 with_roll = (
@@ -87,16 +90,15 @@ with_roll = (
 # COMMAND ----------
 
 # 6. Worst rank per date (1 = worst by rolling 7d avg)
-# Strict mode: rank only when full 7 days are present (days_in_window == 7).
+# All cities present on a date are ranked. Completeness is not gated:
+# days_in_window rides along as a reliability indicator, so
+# ranks built on few days can be filtered by the consumer, not hidden.
 
 rank_win = Window.partitionBy("date").orderBy(F.col("avg_aqi_us_7d").desc_nulls_last())
 
 gold_metrics = (
     with_roll
-    .withColumn(
-        "rank_avg_aqi_us_7d",
-        F.when(F.col("days_in_window") == 7, F.dense_rank().over(rank_win))
-    )
+    .withColumn("rank_avg_aqi_us_7d", F.dense_rank().over(rank_win))
     .withColumn("is_worst_city_7d", F.col("rank_avg_aqi_us_7d") == F.lit(1))
     .withColumn("gold_ingestion_ts", F.current_timestamp())
     .withColumn("execution_id", F.lit(execution_id))

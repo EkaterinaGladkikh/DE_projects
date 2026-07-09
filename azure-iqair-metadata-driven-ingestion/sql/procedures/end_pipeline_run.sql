@@ -16,7 +16,7 @@ BEGIN
 
     UPDATE dbo.pipeline_audit
     SET status        = @final_status,
-        end_ts        = SYSDATETIME(),
+        end_ts        = SYSUTCDATETIME(),
         error_message = @error_message
     WHERE record_type     = 'PIPELINE'
       AND execution_id    = @execution_id

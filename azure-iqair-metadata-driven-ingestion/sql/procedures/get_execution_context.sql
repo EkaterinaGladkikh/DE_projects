@@ -25,8 +25,8 @@ BEGIN
             @environment,
             '_',
             REPLACE(
-                CONVERT(CHAR(8), SYSDATETIME(), 112) + '_' + 
-                CONVERT(CHAR(8), SYSDATETIME(), 108),
+                CONVERT(CHAR(8), SYSUTCDATETIME(), 112) + '_' + 
+                CONVERT(CHAR(8), SYSUTCDATETIME(), 108),
                 ':',
                 ''
             )
