@@ -20,13 +20,13 @@ BEGIN
 
     UPDATE dbo.pipeline_audit
     SET status        = @final_status,
-        end_ts        = SYSDATETIME(),
+        end_ts        = SYSUTCDATETIME(),
         error_message = @error_message
-    WHERE record_type        = 'ACTIVITY'
-      AND execution_id       = @execution_id
-      AND pipeline_run_id    = @pipeline_run_id
-      AND activity_name      = @activity_name
-      AND ISNULL(entity, '') = ISNULL(@entity, '')
+    WHERE record_type         = 'ACTIVITY'
+      AND execution_id        = @execution_id
+      AND pipeline_run_id     = @pipeline_run_id
+      AND activity_name       = @activity_name
+      AND ISNULL(entity, '')  = ISNULL(@entity, '')
       AND ISNULL(state, '')   = ISNULL(@state, '')
       AND ISNULL(country, '') = ISNULL(@country, '')
       AND end_ts IS NULL;

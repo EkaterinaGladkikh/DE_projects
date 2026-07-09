@@ -7,7 +7,7 @@ CREATE OR ALTER PROCEDURE dbo.log_activity_start
     @entity          NVARCHAR(100) = NULL,
     @state           NVARCHAR(100) = NULL,
     @country         NVARCHAR(100) = NULL,
-    @layer           NVARCHAR(20) = NULL
+    @layer           NVARCHAR(20)  = NULL
 )
 AS
 BEGIN
@@ -39,7 +39,7 @@ BEGIN
         @country,
         @layer,
         'STARTED',
-        SYSDATETIME()
+        SYSUTCDATETIME()
     );
 END;
 GO

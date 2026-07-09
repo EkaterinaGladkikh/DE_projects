@@ -12,7 +12,7 @@ BEGIN
         RETURN;
     END;
 
-    DECLARE @now         DATETIME2 = SYSDATETIME();
+    DECLARE @now         DATETIME2 = SYSUTCDATETIME();
     DECLARE @day_calls   INT;
     DECLARE @max_day     INT;
     DECLARE @max_month   INT;

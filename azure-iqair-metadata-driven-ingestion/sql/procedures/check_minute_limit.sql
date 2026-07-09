@@ -6,7 +6,7 @@ BEGIN
     -- SET_EntitiesArray forces an empty entity array when bronze is disabled,
     -- so the loop (and this check) never runs unless bronze is enabled.
  
-    DECLARE @now            DATETIME2 = SYSDATETIME();
+    DECLARE @now            DATETIME2 = SYSUTCDATETIME();
     DECLARE @max_minute     INT;
     DECLARE @last_minute    INT;
  

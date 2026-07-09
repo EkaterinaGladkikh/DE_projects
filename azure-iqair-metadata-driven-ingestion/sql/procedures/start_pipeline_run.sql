@@ -24,7 +24,7 @@ BEGIN
         @pipeline_run_id,
         @environment,
         'STARTED',
-        SYSDATETIME()
+        SYSUTCDATETIME()
     );
 END;
 GO
