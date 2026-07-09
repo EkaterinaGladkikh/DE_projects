@@ -57,6 +57,15 @@ Business aggregates built only from Silver (full refresh, deterministic):
 
 All Bronze/Silver/Gold notebooks receive an `environment` parameter from ADF and resolve their Delta schema as `iqair_{environment}` (e.g. `iqair_dev`).
 
+The schema and all six Delta tables are defined in `databricks/ddl/00_setup_schema_iqair.py`,
+which creates `iqair_{environment}` and every table with `CREATE ... IF NOT EXISTS`. It is
+idempotent — a no-op on an existing environment — so it can be run to bootstrap a fresh
+deployment or committed purely as versioned schema documentation. Table definitions mirror
+exactly what the notebooks write (so `append` / `overwrite` stay schema-compatible). Tables
+are intentionally not partitioned at this data volume; the Silver/Gold date columns
+(`pollution_date`, `weather_date`, `date`, `month_start`) are the natural partition keys if
+that changes.
+
 ---
 
 ## Current repository structure
@@ -75,6 +84,8 @@ azure-iqair-metadata-driven-ingestion/
 │   │   └── PL_IQAir_MetadataDriven_Ingestion.json
 │   └── publish_config.json
 ├── databricks/
+│   ├── ddl/
+│   │   └── 00_setup_schema_iqair.py
 │   ├── bronze/
 │   │   └── 01_bronze_ingestion_iqair.py
 │   ├── silver/
@@ -86,7 +97,7 @@ azure-iqair-metadata-driven-ingestion/
 ├── sql/
 │   ├── ddl/
 │   │   ├── api_call_registry.sql
-│   │   ├── ingestion_config.sql
+│   │   ├── api_limits.sql
 │   │   ├── ingestion_entities.sql
 │   │   └── pipeline_audit.sql
 │   └── procedures/
@@ -246,10 +257,6 @@ instance with a local time zone.
 ---
 
 ## Planned Next Steps
-
-### Metadata Layer
-
-- Databricks Delta DDL (`iqair_dev` schema)
 
 ### Platform Enhancements
 
