@@ -40,8 +40,12 @@ Business aggregates built only from Silver (full refresh, deterministic):
 
 - `gold_daily_aqi_metrics`
   - Daily avg/max AQI per city
-  - Rolling 7-day metrics
-  - Worst city rank per day (based on rolling avg)
+  - Rolling 7-day metrics over a **calendar** window (`[date - 6 days .. date]`, so a
+    gap in sampling shortens the window's coverage rather than reaching further back in time)
+  - Worst city rank per day (rank 1 = highest rolling 7-day avg). All cities present on a
+    date are ranked; `days_in_window` (1–7) rides along as a completeness indicator, so
+    ranks built on few days can be down-weighted or filtered rather than hidden (same idea
+    as `pairs_cnt` below)
 - `gold_aqi_weather_correlation_by_month`
   - Nearest-timestamp join (±3 hours) between pollution and weather
   - Monthly correlations per city
@@ -229,6 +233,15 @@ Limit values live in the `api_limits` table (`max_calls_per_minute` / `_per_day`
 `_per_month`). Both `check_api_limits` and `check_minute_limit` fail-fast if their limit is
 missing, so a misconfigured limits table surfaces as an explicit error rather than silently
 disabling the guard.
+
+All timestamps are recorded in **UTC** end to end: the Bronze notebook stamps calls in
+UTC (Python `datetime.now(timezone.utc)`, Spark `current_timestamp()` with the session
+time zone set to UTC), and the Azure SQL procedures use `SYSUTCDATETIME()`. This keeps the
+quota windows (`check_api_limits` / `check_minute_limit`, which compare the registry's
+`call_ts` against the current time) aligned regardless of where the SQL instance runs.
+Azure SQL Database already runs in UTC, so `SYSUTCDATETIME()` is explicit intent rather than
+a behavior change, but it keeps the contract correct if the database is ever moved to an
+instance with a local time zone.
 
 ---
 
