@@ -13,6 +13,21 @@
 		},
 		"LS_KeyVault_IQAir_properties_typeProperties_baseUrl": {
 			"value": "https://kv-iqair.vault.azure.net/"
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_environment": {
+			"value": "dev"
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_bronze_enabled": {
+			"value": true
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_silver_enabled": {
+			"value": true
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_gold_enabled": {
+			"value": true
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_dq_enabled": {
+			"value": false
 		}
 	}
 }

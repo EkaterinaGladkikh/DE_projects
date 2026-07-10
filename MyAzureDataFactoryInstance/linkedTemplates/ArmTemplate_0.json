@@ -18,6 +18,26 @@
 		"LS_Databricks_IQAir_properties_typeProperties_existingClusterId": {
 			"type": "string",
 			"defaultValue": "0626-135412-w8rpdjfc"
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_environment": {
+			"type": "string",
+			"defaultValue": "dev"
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_bronze_enabled": {
+			"type": "bool",
+			"defaultValue": true
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_silver_enabled": {
+			"type": "bool",
+			"defaultValue": true
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_gold_enabled": {
+			"type": "bool",
+			"defaultValue": true
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_dq_enabled": {
+			"type": "bool",
+			"defaultValue": false
 		}
 	},
 	"variables": {
@@ -2161,6 +2181,52 @@
 				"[concat(variables('factoryId'), '/datasets/DS_SQL_Metadata')]",
 				"[concat(variables('factoryId'), '/linkedServices/LS_AzureSQL_IQAir')]",
 				"[concat(variables('factoryId'), '/pipelines/PL_IQAir_Main_ETL')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/TR_Daily_IQAir')]",
+			"type": "Microsoft.DataFactory/factories/triggers",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"runtimeState": "Started",
+				"pipelines": [
+					{
+						"pipelineReference": {
+							"referenceName": "PL_IQAir_MetadataDriven_Ingestion",
+							"type": "PipelineReference"
+						},
+						"parameters": {
+							"environment": "[parameters('TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_environment')]",
+							"bronze_enabled": "[parameters('TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_bronze_enabled')]",
+							"silver_enabled": "[parameters('TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_silver_enabled')]",
+							"gold_enabled": "[parameters('TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_gold_enabled')]",
+							"dq_enabled": "[parameters('TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_dq_enabled')]"
+						}
+					}
+				],
+				"type": "ScheduleTrigger",
+				"typeProperties": {
+					"recurrence": {
+						"frequency": "Day",
+						"interval": 1,
+						"startTime": "2026-07-10T20:00:00Z",
+						"timeZone": "UTC",
+						"schedule": {
+							"minutes": [
+								0
+							],
+							"hours": [
+								6,
+								13,
+								20
+							]
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/PL_IQAir_MetadataDriven_Ingestion')]"
 			]
 		}
 	]

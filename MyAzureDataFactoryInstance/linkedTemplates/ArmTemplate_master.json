@@ -19,6 +19,26 @@
 			"type": "string",
 			"defaultValue": "https://kv-iqair.vault.azure.net/"
 		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_environment": {
+			"type": "string",
+			"defaultValue": "dev"
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_bronze_enabled": {
+			"type": "bool",
+			"defaultValue": true
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_silver_enabled": {
+			"type": "bool",
+			"defaultValue": true
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_gold_enabled": {
+			"type": "bool",
+			"defaultValue": true
+		},
+		"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_dq_enabled": {
+			"type": "bool",
+			"defaultValue": false
+		},
 		"containerUri": {
 			"type": "string",
 			"metadata": "URI to storage account containing linked ARM templates"
@@ -54,6 +74,21 @@
 					},
 					"LS_Databricks_IQAir_properties_typeProperties_existingClusterId": {
 						"value": "[parameters('LS_Databricks_IQAir_properties_typeProperties_existingClusterId')]"
+					},
+					"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_environment": {
+						"value": "[parameters('TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_environment')]"
+					},
+					"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_bronze_enabled": {
+						"value": "[parameters('TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_bronze_enabled')]"
+					},
+					"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_silver_enabled": {
+						"value": "[parameters('TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_silver_enabled')]"
+					},
+					"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_gold_enabled": {
+						"value": "[parameters('TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_gold_enabled')]"
+					},
+					"TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_dq_enabled": {
+						"value": "[parameters('TR_Daily_IQAir_properties_PL_IQAir_MetadataDriven_Ingestion_parameters_dq_enabled')]"
 					}
 				}
 			},
