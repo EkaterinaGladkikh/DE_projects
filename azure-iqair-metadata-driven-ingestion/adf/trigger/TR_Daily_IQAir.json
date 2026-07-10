@@ -1,0 +1,41 @@
+{
+	"name": "TR_Daily_IQAir",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Started",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "PL_IQAir_MetadataDriven_Ingestion",
+					"type": "PipelineReference"
+				},
+				"parameters": {
+					"environment": "dev",
+					"bronze_enabled": true,
+					"silver_enabled": true,
+					"gold_enabled": true,
+					"dq_enabled": false
+				}
+			}
+		],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Day",
+				"interval": 1,
+				"startTime": "2026-07-10T20:00:00Z",
+				"timeZone": "UTC",
+				"schedule": {
+					"minutes": [
+						0
+					],
+					"hours": [
+						6,
+						13,
+						20
+					]
+				}
+			}
+		}
+	}
+}
